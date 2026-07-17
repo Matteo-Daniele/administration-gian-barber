@@ -2,12 +2,22 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { CUTS_CONFIG, formatCurrency } from "@/lib/types";
-import type { Cut } from "@/lib/types";
+import { CUTS_CONFIG, CUT_STATUS, formatCurrency } from "@/lib/types";
+import type { Cut, CutStatus } from "@/lib/types";
 import HistoryFilters from "@/components/HistoryFilters";
 
-export default function HistoryContent({ initialCuts }: { initialCuts: Cut[] }) {
-  const [cuts, setCuts] = useState<Cut[]>(initialCuts);
+interface CutWithBarber extends Cut {
+  barber_name?: string;
+}
+
+export default function HistoryContent({
+  initialCuts,
+  isAdmin = false,
+}: {
+  initialCuts: CutWithBarber[];
+  isAdmin?: boolean;
+}) {
+  const [cuts, setCuts] = useState<CutWithBarber[]>(initialCuts);
   const [filters, setFilters] = useState<{
     type: string;
     from: string;
@@ -41,7 +51,7 @@ export default function HistoryContent({ initialCuts }: { initialCuts: Cut[] }) 
     return true;
   });
 
-  const grouped: Record<string, Cut[]> = {};
+  const grouped: Record<string, CutWithBarber[]> = {};
   filteredCuts.forEach((cut) => {
     const date = new Date(cut.created_at).toLocaleDateString("es-AR", {
       year: "numeric",
@@ -80,6 +90,7 @@ export default function HistoryContent({ initialCuts }: { initialCuts: Cut[] }) 
                   {dayCuts.map((cut) => {
                     const config =
                       CUTS_CONFIG[cut.cut_type as keyof typeof CUTS_CONFIG];
+                    const statusInfo = CUT_STATUS[cut.status as CutStatus];
                     return (
                       <div
                         key={cut.id}
@@ -91,14 +102,28 @@ export default function HistoryContent({ initialCuts }: { initialCuts: Cut[] }) 
                             <p className="font-medium text-zinc-900">
                               {config?.label}
                             </p>
-                            {cut.client_name && (
-                              <p className="text-sm text-zinc-400">
-                                {cut.client_name}
-                              </p>
-                            )}
+                            <div className="flex items-center gap-2 text-sm text-zinc-400">
+                              {cut.client_name && <span>{cut.client_name}</span>}
+                              {isAdmin && cut.barber_name && (
+                                <span className="text-xs text-zinc-300">
+                                  - {cut.barber_name}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-4">
+                          <span
+                            className={`rounded-full px-2 py-1 text-xs font-medium ${
+                              cut.status === "approved"
+                                ? "bg-green-100 text-green-700"
+                                : cut.status === "rejected"
+                                  ? "bg-red-100 text-red-700"
+                                  : "bg-amber-100 text-amber-700"
+                            }`}
+                          >
+                            {statusInfo?.label || cut.status}
+                          </span>
                           <span className="font-semibold text-zinc-900">
                             {formatCurrency(Number(cut.price))}
                           </span>

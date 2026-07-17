@@ -10,17 +10,35 @@ export default async function StatsPage() {
     redirect("/login");
   }
 
-  const [profileRes, cutsRes] = await Promise.all([
-    supabase.from("profiles").select("*").eq("id", user.id).single(),
-    supabase
-      .from("cuts")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false }),
-  ]);
+  const profileRes = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .single();
 
   const profile = profileRes.data as Profile | null;
-  const cuts = (cutsRes.data || []) as Cut[];
+
+  const isAdmin = profile?.role === "admin";
+
+  const cutsQuery = supabase
+    .from("cuts")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (!isAdmin) {
+    cutsQuery.eq("user_id", user.id);
+  }
+
+  const { data: cutsData } = await cutsQuery;
+  const cuts = (cutsData || []) as Cut[];
+
+  let allProfiles: Profile[] = [];
+  if (isAdmin) {
+    const { data: profilesData } = await supabase
+      .from("profiles")
+      .select("*");
+    allProfiles = (profilesData || []) as Profile[];
+  }
 
   return (
     <div className="space-y-8">
@@ -29,7 +47,7 @@ export default async function StatsPage() {
         <p className="text-zinc-500">Analisis de ingresos y rendimiento</p>
       </div>
 
-      <StatsContent cuts={cuts} profile={profile} />
+      <StatsContent cuts={cuts} profile={profile} allProfiles={allProfiles} />
     </div>
   );
 }

@@ -2,7 +2,6 @@
 
 import { useState, Suspense } from "react";
 import { login } from "@/lib/actions/auth";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
 function LoginForm() {
@@ -85,10 +84,7 @@ export default function LoginPage() {
       </Suspense>
 
       <p className="mt-6 text-center text-sm text-zinc-500">
-        No tenes cuenta?{" "}
-        <Link href="/register" className="font-medium text-amber-600 hover:text-amber-700">
-          Registrate
-        </Link>
+        El registro es solo para administradores.
       </p>
     </div>
   );
