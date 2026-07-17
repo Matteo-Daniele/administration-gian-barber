@@ -20,12 +20,23 @@ export async function addCut(formData: FormData) {
     color_change: 25000,
   };
 
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  const isAdmin = profile?.role === "admin";
+
   const { error } = await supabase.from("cuts").insert({
     user_id: user.id,
     cut_type: cutType,
     price: prices[cutType],
     client_name: clientName || "",
     notes: notes || null,
+    status: isAdmin ? "approved" : "pending",
+    approved_by: isAdmin ? user.id : null,
+    approved_at: isAdmin ? new Date().toISOString() : null,
   });
 
   if (error) {

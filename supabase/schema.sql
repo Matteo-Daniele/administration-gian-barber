@@ -9,8 +9,9 @@ create table public.profiles (
   email text not null,
   full_name text,
   role text not null default 'barber' check (role in ('admin', 'barber')),
-  barber_share_pct numeric(5,2) not null default 100.00,
-  shop_share_pct numeric(5,2) not null default 0.00,
+  barber_share_pct numeric(5,2) not null default 50.00,
+  shop_share_pct numeric(5,2) not null default 50.00,
+  is_active boolean not null default true,
   created_at timestamptz not null default now()
 );
 
@@ -22,6 +23,10 @@ create table public.cuts (
   price numeric(10,2) not null,
   client_name text not null default '',
   notes text,
+  status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
+  payment_type text check (payment_type in ('cash', 'transfer')),
+  approved_by uuid references public.profiles(id),
+  approved_at timestamptz,
   created_at timestamptz not null default now()
 );
 
@@ -60,22 +65,64 @@ create policy "Profiles: users can update own"
   on public.profiles for update
   using (auth.uid() = id);
 
--- Cuts: barbers can insert their own cuts, view all cuts
+-- Profiles: admin can update any profile
+create policy "Profiles: admin can update any"
+  on public.profiles for update
+  using (
+    exists (
+      select 1 from public.profiles
+      where id = auth.uid() and role = 'admin'
+    )
+  );
+
+-- Profiles: admin can insert new users
+create policy "Profiles: admin can insert"
+  on public.profiles for insert
+  with check (
+    exists (
+      select 1 from public.profiles
+      where id = auth.uid() and role = 'admin'
+    )
+  );
+
+-- Profiles: admin can delete users
+create policy "Profiles: admin can delete"
+  on public.profiles for delete
+  using (
+    exists (
+      select 1 from public.profiles
+      where id = auth.uid() and role = 'admin'
+    )
+  );
+
+-- Cuts: barbers can insert their own cuts
 create policy "Cuts: barbers can insert own"
   on public.cuts for insert
   with check (auth.uid() = user_id);
 
+-- Cuts: barbers can view all cuts
 create policy "Cuts: barbers can view all"
   on public.cuts for select
   using (true);
 
-create policy "Cuts: barbers can delete own"
+-- Cuts: barbers can delete own pending cuts
+create policy "Cuts: barbers can delete own pending"
   on public.cuts for delete
-  using (auth.uid() = user_id);
+  using (auth.uid() = user_id and status = 'pending');
 
--- Admin can update share percentages on profiles
-create policy "Profiles: admin can update any"
-  on public.profiles for update
+-- Cuts: admin can update any cut (approve/reject)
+create policy "Cuts: admin can update any"
+  on public.cuts for update
+  using (
+    exists (
+      select 1 from public.profiles
+      where id = auth.uid() and role = 'admin'
+    )
+  );
+
+-- Cuts: admin can delete any cut
+create policy "Cuts: admin can delete any"
+  on public.cuts for delete
   using (
     exists (
       select 1 from public.profiles
@@ -87,6 +134,7 @@ create policy "Profiles: admin can update any"
 create index idx_cuts_user_id on public.cuts(user_id);
 create index idx_cuts_created_at on public.cuts(created_at);
 create index idx_cuts_cut_type on public.cuts(cut_type);
+create index idx_cuts_status on public.cuts(status);
 
 -- =============================================
 -- IMPORTANT: After running this, manually set

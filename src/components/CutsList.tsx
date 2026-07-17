@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { CUTS_CONFIG, formatCurrency } from "@/lib/types";
-import type { Cut } from "@/lib/types";
+import { CUTS_CONFIG, PAYMENT_TYPES, CUT_STATUS, formatCurrency } from "@/lib/types";
+import type { Cut, CutStatus, PaymentType } from "@/lib/types";
 import CutForm from "@/components/CutForm";
 
 export default function CutsList({ initialCuts }: { initialCuts: Cut[] }) {
@@ -41,7 +41,23 @@ export default function CutsList({ initialCuts }: { initialCuts: Cut[] }) {
     }
   };
 
-  const totalToday = cuts.reduce((sum, c) => sum + Number(c.price), 0);
+  const approvedCuts = cuts.filter((c) => c.status === "approved");
+  const totalApproved = approvedCuts.reduce((sum, c) => sum + Number(c.price), 0);
+
+  const getStatusColor = (status: CutStatus) => {
+    const colors = {
+      pending: "bg-amber-100 text-amber-700",
+      approved: "bg-green-100 text-green-700",
+      rejected: "bg-red-100 text-red-700",
+    };
+    return colors[status];
+  };
+
+  const getPaymentLabel = (paymentType: PaymentType | null) => {
+    if (!paymentType) return null;
+    const payment = PAYMENT_TYPES[paymentType];
+    return payment ? `${payment.emoji} ${payment.label}` : null;
+  };
 
   return (
     <>
@@ -50,8 +66,8 @@ export default function CutsList({ initialCuts }: { initialCuts: Cut[] }) {
       <div className="rounded-xl border border-zinc-200 bg-white p-6">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-zinc-900">Cortes de hoy</h2>
-          <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-700">
-            Total: {formatCurrency(totalToday)}
+          <span className="rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-700">
+            Aprobados: {formatCurrency(totalApproved)}
           </span>
         </div>
 
@@ -64,6 +80,7 @@ export default function CutsList({ initialCuts }: { initialCuts: Cut[] }) {
             {cuts.map((cut) => {
               const config = CUTS_CONFIG[cut.cut_type as keyof typeof CUTS_CONFIG];
               const isOptimistic = cut.user_id === "temp";
+              const statusInfo = CUT_STATUS[cut.status as CutStatus];
               return (
                 <div
                   key={cut.id}
@@ -82,12 +99,24 @@ export default function CutsList({ initialCuts }: { initialCuts: Cut[] }) {
                           </span>
                         )}
                       </p>
-                      {cut.notes && (
-                        <p className="text-sm text-zinc-400">{cut.notes}</p>
-                      )}
+                      <div className="flex items-center gap-2 text-sm text-zinc-400">
+                        {cut.notes && <span>{cut.notes}</span>}
+                        {cut.payment_type && (
+                          <span className="text-xs">
+                            {getPaymentLabel(cut.payment_type)}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
+                    <span
+                      className={`rounded-full px-2 py-1 text-xs font-medium ${
+                        getStatusColor(cut.status as CutStatus)
+                      }`}
+                    >
+                      {statusInfo?.label || cut.status}
+                    </span>
                     <span className="font-semibold text-zinc-900">
                       {formatCurrency(Number(cut.price))}
                     </span>
@@ -97,7 +126,7 @@ export default function CutsList({ initialCuts }: { initialCuts: Cut[] }) {
                         minute: "2-digit",
                       })}
                     </span>
-                    {!isOptimistic && (
+                    {!isOptimistic && cut.status === "pending" && (
                       <button
                         onClick={() => handleDelete(cut.id)}
                         className="text-xs text-red-400 hover:text-red-600"

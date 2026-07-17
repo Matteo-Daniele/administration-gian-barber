@@ -12,8 +12,14 @@ const NAV_ITEMS = [
   { href: "/history", label: "Historial", icon: "📋" },
 ];
 
+const ADMIN_NAV_ITEMS = [
+  { href: "/admin/users", label: "Usuarios", icon: "👥" },
+  { href: "/admin/cuts", label: "Pendientes", icon: "⏳" },
+];
+
 export default function Navbar({ profile }: { profile: Profile | null }) {
   const pathname = usePathname();
+  const isAdmin = profile?.role === "admin";
 
   return (
     <header className="border-b border-zinc-200 bg-white shadow-sm">
@@ -37,12 +43,30 @@ export default function Navbar({ profile }: { profile: Profile | null }) {
               {item.icon} {item.label}
             </Link>
           ))}
+          {isAdmin && (
+            <>
+              <span className="mx-1 text-zinc-300">|</span>
+              {ADMIN_NAV_ITEMS.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                    pathname.startsWith(item.href)
+                      ? "bg-amber-500 text-white"
+                      : "text-zinc-600 hover:bg-zinc-100"
+                  }`}
+                >
+                  {item.icon} {item.label}
+                </Link>
+              ))}
+            </>
+          )}
         </nav>
 
         <div className="flex items-center gap-3">
           <span className="hidden text-sm text-zinc-500 sm:block">
             {profile?.full_name || profile?.email}
-            {profile?.role === "admin" && (
+            {isAdmin && (
               <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
                 Admin
               </span>
@@ -74,6 +98,19 @@ export default function Navbar({ profile }: { profile: Profile | null }) {
             {item.label}
           </Link>
         ))}
+        {isAdmin && (
+          <Link
+            href="/admin"
+            className={`flex-1 py-2 text-center text-xs font-medium transition-colors ${
+              pathname.startsWith("/admin")
+                ? "text-amber-600"
+                : "text-zinc-400"
+            }`}
+          >
+            <span className="block text-lg">⚙️</span>
+            Admin
+          </Link>
+        )}
       </nav>
     </header>
   );
