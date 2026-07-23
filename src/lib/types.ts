@@ -33,7 +33,7 @@ export const CUTS_CONFIG: Record<
 > = {
   simple: { label: "Simple", price: 11000, emoji: "✂️" },
   hair_beard: { label: "Pelo y Barba", price: 13000, emoji: "💈" },
-  color_change: { label: "Cambio de Color", price: 25000, emoji: "🎨" },
+  color_change: { label: "Color", price: 25000, emoji: "🎨" },
 };
 
 export const PAYMENT_TYPES: Record<PaymentType, { label: string; emoji: string }> = {

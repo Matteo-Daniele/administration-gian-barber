@@ -51,8 +51,8 @@ export async function createUser(formData: FormData) {
   const password = formData.get("password") as string;
   const fullName = formData.get("full_name") as string;
   const role = formData.get("role") as "admin" | "barber";
-  const barberSharePct = parseFloat(formData.get("barber_share_pct") as string) || 50;
-  const shopSharePct = parseFloat(formData.get("shop_share_pct") as string) || 50;
+  const barberSharePct = parseFloat(formData.get("barber_share_pct") as string) ?? 50;
+  const shopSharePct = parseFloat(formData.get("shop_share_pct") as string) ?? 50;
 
   const { data, error } = await adminSupabase.auth.admin.createUser({
     email,
@@ -84,15 +84,16 @@ export async function createUser(formData: FormData) {
 }
 
 export async function updateUser(userId: string, formData: FormData) {
-  const { supabase } = await getAdminClient();
+  await getAdminClient();
+  const adminSupabase = await getAdminAuthClient();
 
   const fullName = formData.get("full_name") as string;
   const role = formData.get("role") as "admin" | "barber";
-  const barberSharePct = parseFloat(formData.get("barber_share_pct") as string) || 50;
-  const shopSharePct = parseFloat(formData.get("shop_share_pct") as string) || 50;
+  const barberSharePct = parseFloat(formData.get("barber_share_pct") as string) ?? 50;
+  const shopSharePct = parseFloat(formData.get("shop_share_pct") as string) ?? 50;
   const isActive = formData.get("is_active") === "on";
 
-  const { error } = await supabase
+  const { error } = await adminSupabase
     .from("profiles")
     .update({
       full_name: fullName,
@@ -104,10 +105,10 @@ export async function updateUser(userId: string, formData: FormData) {
     .eq("id", userId);
 
   if (error) {
-    redirect("/admin/edit-user/" + userId + "?error=" + encodeURIComponent(error.message));
+    return { error: error.message };
   }
 
-  redirect("/admin/users?message=" + encodeURIComponent("Usuario actualizado exitosamente."));
+  return { success: true };
 }
 
 export async function deleteUser(userId: string) {

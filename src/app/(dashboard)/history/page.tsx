@@ -1,7 +1,7 @@
 import { getUser } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import HistoryContent from "@/components/HistoryContent";
-import type { Cut } from "@/lib/types";
+import type { Cut, Profile } from "@/lib/types";
 
 export default async function HistoryPage() {
   const { user, supabase } = await getUser();
@@ -19,20 +19,25 @@ export default async function HistoryPage() {
   const isAdmin = profile?.role === "admin";
 
   let cuts: (Cut & { barber_name?: string })[] = [];
+  let allProfiles: Profile[] = [];
 
   if (isAdmin) {
-    const { data } = await supabase
-      .from("cuts")
-      .select("*, profiles:user_id(full_name)")
-      .order("created_at", { ascending: false });
+    const [cutsRes, profilesRes] = await Promise.all([
+      supabase
+        .from("cuts")
+        .select("*, profiles:user_id(full_name)")
+        .order("created_at", { ascending: false }),
+      supabase.from("profiles").select("*"),
+    ]);
 
-    cuts = (data || []).map((item) => {
+    cuts = (cutsRes.data || []).map((item) => {
       const cut = item as unknown as Cut & { profiles: { full_name: string } | null };
       return {
         ...cut,
         barber_name: cut.profiles?.full_name || "Desconocido",
       };
     });
+    allProfiles = (profilesRes.data || []) as Profile[];
   } else {
     const { data } = await supabase
       .from("cuts")
@@ -52,7 +57,7 @@ export default async function HistoryPage() {
         </p>
       </div>
 
-      <HistoryContent initialCuts={cuts} isAdmin={isAdmin} />
+      <HistoryContent initialCuts={cuts} isAdmin={isAdmin} allProfiles={allProfiles} />
     </div>
   );
 }
