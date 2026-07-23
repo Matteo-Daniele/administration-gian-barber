@@ -1,8 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { createClient } from "@supabase/supabase-js";
 import type { Profile } from "@/lib/types";
 
 async function getAdminClient() {
@@ -28,24 +27,14 @@ async function getAdminClient() {
 }
 
 async function getAdminAuthClient() {
-  const cookieStore = await cookies();
-  return createServerClient(
+  return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll() {},
-      },
-    }
   );
 }
 
 export async function createUser(formData: FormData) {
   await getAdminClient();
-  const adminSupabase = await getAdminAuthClient();
 
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
@@ -54,22 +43,35 @@ export async function createUser(formData: FormData) {
   const barberSharePct = parseFloat(formData.get("barber_share_pct") as string) ?? 50;
   const shopSharePct = parseFloat(formData.get("shop_share_pct") as string) ?? 50;
 
-  const { data, error } = await adminSupabase.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: {
-      full_name: fullName,
-    },
-  });
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+        apikey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { full_name: fullName },
+      }),
+    }
+  );
 
-  if (error) {
-    redirect("/admin/create-user?error=" + encodeURIComponent(error.message));
+  if (!res.ok) {
+    const body = await res.text();
+    console.error("Create user error:", res.status, body);
+    redirect("/admin/create-user?error=" + encodeURIComponent(`Error ${res.status}: ${body}`));
   }
 
-  if (data.user) {
-    const { supabase } = await getAdminClient();
-    await supabase
+  const { id: newUserId } = await res.json();
+
+  if (newUserId) {
+    const adminSupabase = await getAdminAuthClient();
+    await adminSupabase
       .from("profiles")
       .update({
         role,
@@ -77,7 +79,7 @@ export async function createUser(formData: FormData) {
         barber_share_pct: barberSharePct,
         shop_share_pct: shopSharePct,
       })
-      .eq("id", data.user.id);
+      .eq("id", newUserId);
   }
 
   redirect("/admin/users?message=" + encodeURIComponent("Usuario creado exitosamente."));
@@ -115,10 +117,25 @@ export async function deleteUser(userId: string) {
   await getAdminClient();
   const adminSupabase = await getAdminAuthClient();
 
-  const { error } = await adminSupabase.auth.admin.deleteUser(userId);
+  await adminSupabase.from("cuts").delete().eq("user_id", userId);
+  await adminSupabase.from("cuts").update({ approved_by: null }).eq("approved_by", userId);
+  await adminSupabase.from("profiles").delete().eq("id", userId);
 
-  if (error) {
-    redirect("/admin/users?error=" + encodeURIComponent(error.message));
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users/${userId}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+        apikey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    const body = await res.text();
+    console.error("Delete user error:", res.status, body);
+    redirect("/admin/users?error=" + encodeURIComponent(`Error ${res.status}: ${body}`));
   }
 
   redirect("/admin/users?message=" + encodeURIComponent("Usuario eliminado exitosamente."));
