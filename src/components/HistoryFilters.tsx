@@ -1,14 +1,39 @@
 "use client";
 
+import type { Profile } from "@/lib/types";
+
 export default function HistoryFilters({
   filters,
   onFilterChange,
+  isAdmin = false,
+  allProfiles = [],
 }: {
-  filters: { type: string; from: string; to: string };
-  onFilterChange: (f: { type: string; from: string; to: string }) => void;
+  filters: { type: string; from: string; to: string; userId: string };
+  onFilterChange: (f: { type: string; from: string; to: string; userId: string }) => void;
+  isAdmin?: boolean;
+  allProfiles?: Profile[];
 }) {
   return (
     <div className="flex flex-wrap items-end gap-4 rounded-xl border border-zinc-200 bg-white p-4">
+      {isAdmin && allProfiles.length > 0 && (
+        <div>
+          <label className="mb-1 block text-sm text-zinc-500">Barbero</label>
+          <select
+            value={filters.userId}
+            onChange={(e) =>
+              onFilterChange({ ...filters, userId: e.target.value })
+            }
+            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-amber-500"
+          >
+            <option value="all">Todos</option>
+            {allProfiles.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.full_name || p.email}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <div>
         <label className="mb-1 block text-sm text-zinc-500">Tipo</label>
         <select
